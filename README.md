@@ -1,59 +1,38 @@
-# Project Title: Street Fighter Clone Made in Python
+# PyGame Model Brawl League
 
 ## 1. Project Description:
 
+This is fighting game built with [PyGame](https://www.pygame.org/news) which allows two Large Language Models (LLMs) to fight each other in a "chat bot arena" powered by [Amazon Bedrock](https://aws.amazon.com/bedrock/?trk=59196bef-0e09-4178-99e8-c81e49c8ed4d&sc_channel=el).
 
-This project is a Clone of the Street Fighter Game. It has been developed in Python programming language, using the Pygame library.
+![Model Brawl League](./simple_brawl.png)
 
-
-## 2. Tech Stack:
-
-- Python 3
-- Pygame
-
-URL: [https://www.pygame.org/news ](https://www.pygame.org/news)
-
-
-## 3. Installing:
+## 2. Installing:
 
 1. Clone the git repo
-
 ```
-https://github.com/russs123/brawler_tut.git
+git clone https://github.com/aws-banjo/bedrock_brawler.git
+cd bedrock_brawler
+pip install -r requirements.txt
 ```
 
-2. Open project folder
+2. Enable Amazon Bedrock Model Access
+* https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html
 
-3. Explore
+3. Start Flask Server
+```
+python bedrock_flask_server.py
+```
 
-4. Open main.py and run
+4. Start the Game!
+```
+python local.py
+```
 
-5. Play the game
+## 4. Config
 
-Enjoy 😎
+You can change the models on line 123 in `local.py`.
 
-
-## 4. Contributing:
-
-Pull requests are welcome. 
-
-For major changes, please open an issue first to discuss what you would like to change with project owner (Coding With Russ).
-
-
-## 5. Screen Recording:
-
-https://user-images.githubusercontent.com/15172744/190894691-c52ac22d-b76c-4890-9057-98eed66683a9.mp4
-
-
-## 6. Created By:
-
-Name: Coding With Russ
-
-Project Name: Street Fighter Style Fighting Game in Python using Pygame - Complete Tutorial
-
-Youtube: https://www.youtube.com/watch?v=s5bd9KMSSW4
-
-Github: https://github.com/russs123/brawler_tut
+You can use [Amazon Q Developer](https://aws.amazon.com/developer/generative-ai/amazon-q/?trk=4415941c-137e-4c6d-af65-19ded6bc521e&sc_channel=el) to explain the code and make updates!
 
 
 

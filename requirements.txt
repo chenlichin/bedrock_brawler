@@ -1,0 +1,6 @@
+pygame
+boto3
+botocore
+requests
+flask
+flask_cors
