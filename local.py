@@ -1,36 +1,9 @@
 import asyncio
-import boto3
 import pygame
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 # from fighter import Fighter
 from llm_fighter import LLMFighter
-
-
-def get_model_display_name(model_id):
-
-    model_ids = [
-        "anthropic.claude-3-sonnet-20240229-v1:0",
-        "anthropic.claude-3-haiku-20240307-v1:0",
-        "meta.llama3-8b-instruct-v1:0",
-        "meta.llama3-70b-instruct-v1:0",
-        "mistral.mistral-large-2402-v1:0",
-        "mistral.mixtral-8x7b-instruct-v0:1",
-    ]
-
-    if model_id == model_ids[0]:
-        return "Claude 3 Sonnet"
-    elif model_id == model_ids[1]:
-        return "Claude 3 Haiku"
-    elif model_id == model_ids[2]:
-        return "Llama 3 8B Instruct"
-    elif model_id == model_ids[3]:
-        return "Llama 3 70B Instruct"
-    elif model_id == model_ids[4]:
-        return "Mistral Large"
-    elif model_id == model_ids[5]:
-        return "Mixtral 8x7B"
-    else:
-        return "Unknown"
 
 
 async def main():
@@ -142,32 +115,19 @@ async def main():
         else:
             draw_text(surface, "No actions", action_font, WHITE, x, BORDER_TOP + 25)
 
-    # Pick Models here
-    model_ids = [
-        "anthropic.claude-3-sonnet-20240229-v1:0",
-        "anthropic.claude-3-haiku-20240307-v1:0",
-        "meta.llama3-8b-instruct-v1:0",
-        "meta.llama3-70b-instruct-v1:0",
-        "mistral.mistral-large-2402-v1:0",
-        "mistral.mixtral-8x7b-instruct-v0:1",
-    ]
+    # Load Hugging Face model
+    MODEL_NAME = "bigscience/bloom-560m"
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    hf_model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+    llm = pipeline("text-generation", model=hf_model, tokenizer=tokenizer)
 
-    model_1 = "anthropic.claude-3-sonnet-20240229-v1:0"
+    model_1 = MODEL_NAME
     system_prompt_1 = "You are a very defensive player"
-    bedrock_runtime_1 = boto3.client(
-        service_name="bedrock-runtime",
-        region_name="us-west-2",
-    )
+    display_name_1 = model_1
 
-    display_name_1 = get_model_display_name(model_1)
-
-    model_2 = "anthropic.claude-3-haiku-20240307-v1:0"
+    model_2 = MODEL_NAME
     system_prompt_2 = "You are a very aggressive player"
-    bedrock_runtime_2 = boto3.client(
-        service_name="bedrock-runtime",
-        region_name="us-east-1",
-    )
-    display_name_2 = get_model_display_name(model_2)
+    display_name_2 = model_2
 
     fighter_1 = LLMFighter(
         1,
@@ -179,7 +139,7 @@ async def main():
         WARRIOR_ANIMATION_STEPS,
         model_1,
         system_prompt_1,
-        bedrock_runtime_1,
+        llm,
     )
 
     fighter_2 = LLMFighter(
@@ -192,7 +152,7 @@ async def main():
         WIZARD_ANIMATION_STEPS,
         model_2,
         system_prompt_2,
-        bedrock_runtime_2,
+        llm,
     )
 
     # game loop
@@ -293,7 +253,7 @@ async def main():
                     WARRIOR_ANIMATION_STEPS,
                     model_1,
                     system_prompt_1,
-                    bedrock_runtime_1,
+                    llm,
                 )
 
                 fighter_2 = LLMFighter(
@@ -306,7 +266,7 @@ async def main():
                     WIZARD_ANIMATION_STEPS,
                     model_2,
                     system_prompt_2,
-                    bedrock_runtime_2,
+                    llm,
                 )
 
         # event handler

@@ -2,28 +2,11 @@ import asyncio
 import re
 
 import pygame
-import requests
+from typing import Any
 
 VALID_ACTIONS = ["MOVE_CLOSER", "MOVE_AWAY", "HIGH_ATTACK", "LOW_ATTACK", "JUMP"]
 MAX_HEALTH = 100
 MODEL_COOLDOWN = 500
-API_URL = "http://localhost:8080/invoke_model"
-
-
-def call_bedrock_model_flask(api_url, model, system_prompt, prompt, player):
-
-    payload = {
-        "model": model,
-        "system_prompt": system_prompt,
-        "prompt": prompt,
-        "player": player,
-    }
-    # print(payload)
-    response = requests.post(api_url, json=payload)
-    result = response.json()
-    return result["actions"]
-
-
 class LLMFighter:
     def __init__(
         self,
@@ -36,7 +19,7 @@ class LLMFighter:
         animation_steps,
         model,
         system_prompt,
-        bedrock_runtime,
+        llm_pipeline: Any,
     ):
         self.player = player
         self.size = data[0]
@@ -60,7 +43,7 @@ class LLMFighter:
         self.alive = True
         self.model = model
         self.system_prompt = system_prompt
-        self.bedrock_runtime = bedrock_runtime
+        self.llm_pipeline = llm_pipeline
         self.last_action = None
         self.action_queue = []
         self.last_model_call_time = None
@@ -85,23 +68,22 @@ class LLMFighter:
 
     async def add_llm_actions_to_queue(self, full_system_prompt):
 
-        prompt = "Your next moves are:"
+        prompt = f"{full_system_prompt}\nYour next moves are:"
 
-        # # make this non blocking
-        actions = await asyncio.to_thread(
-            call_bedrock_model_flask,
-            API_URL,
-            self.model,
-            full_system_prompt,
+        # Run the Hugging Face model in a separate thread
+        result = await asyncio.to_thread(
+            self.llm_pipeline,
             prompt,
-            self.player,
+            max_new_tokens=50,
         )
 
-        print(f"{self.model} respoonse:")
-        print(actions)
+        actions_text = result[0]["generated_text"][len(prompt) :]
+
+        print(f"{self.model} response:")
+        print(actions_text)
 
         # The response is a bullet point list of moves. Use regex
-        matches = re.findall(r"- ([\w ]+)", actions)
+        matches = re.findall(r"- ([\w ]+)", actions_text)
         moves = ["".join(match) for match in matches]
         invalid_moves = []
         valid_moves = []
