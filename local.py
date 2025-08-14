@@ -1,5 +1,4 @@
 import asyncio
-
 import boto3
 import pygame
 
@@ -39,11 +38,18 @@ async def main():
     pygame.init()
 
     # create game window
-    SCREEN_WIDTH = 1000
-    SCREEN_HEIGHT = 600
+    GAME_WIDTH = 1000
+    GAME_HEIGHT = 600
+    BORDER_LEFT = 200
+    BORDER_RIGHT = 200
+    BORDER_TOP = 50
+    BORDER_BOTTOM = 150
+    SCREEN_WIDTH = GAME_WIDTH + BORDER_LEFT + BORDER_RIGHT
+    SCREEN_HEIGHT = GAME_HEIGHT + BORDER_TOP + BORDER_BOTTOM
 
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Model Brawl League")
+    game_surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
 
     # set framerate
     clock = pygame.time.Clock()
@@ -96,28 +102,45 @@ async def main():
     score_font = pygame.font.Font("assets/fonts/turok.ttf", 30)
 
     # function for drawing text
-    def draw_text(text, font, text_col, x, y):
+    def draw_text(surface, text, font, text_col, x, y):
         img = font.render(text, True, text_col)
-        screen.blit(img, (x, y))
+        surface.blit(img, (x, y))
 
     # function for drawing background
-    def draw_bg():
-        scaled_bg = pygame.transform.scale(bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
-        screen.blit(scaled_bg, (0, 0))
+    def draw_bg(surface):
+        scaled_bg = pygame.transform.scale(bg_image, (GAME_WIDTH, GAME_HEIGHT))
+        surface.blit(scaled_bg, (0, 0))
 
     # function for drawing fighter health bars
-    def draw_health_bar(health, x, y):
+    def draw_health_bar(surface, health, x, y):
         ratio = health / 100
-        pygame.draw.rect(screen, WHITE, (x - 2, y - 2, 404, 34))
-        pygame.draw.rect(screen, RED, (x, y, 400, 30))
-        pygame.draw.rect(screen, YELLOW, (x, y, 400 * ratio, 30))
+        pygame.draw.rect(surface, WHITE, (x - 2, y - 2, 404, 34))
+        pygame.draw.rect(surface, RED, (x, y, 400, 30))
+        pygame.draw.rect(surface, YELLOW, (x, y, 400 * ratio, 30))
 
-    def draw_timer(timer, x, y):
+    def draw_timer(surface, timer, x, y):
 
         if timer <= 0:
             timer = 0
 
-        draw_text(f"{timer}", count_font, RED, x, y)
+        draw_text(surface, f"{timer}", count_font, RED, x, y)
+
+    action_font = pygame.font.Font("assets/fonts/turok.ttf", 20)
+
+    def draw_actions(surface, fighter, x):
+        draw_text(surface, "Moves:", action_font, WHITE, x, BORDER_TOP)
+        if fighter.action_queue:
+            for i, action in enumerate(fighter.action_queue[:5]):
+                draw_text(
+                    surface,
+                    f"- {action}",
+                    action_font,
+                    WHITE,
+                    x,
+                    BORDER_TOP + 25 + i * 20,
+                )
+        else:
+            draw_text(surface, "No actions", action_font, WHITE, x, BORDER_TOP + 25)
 
     # Pick Models here
     model_ids = [
@@ -180,24 +203,43 @@ async def main():
         clock.tick(FPS)
 
         # draw background
-        draw_bg()
+        draw_bg(game_surface)
 
         # show player stats
-        draw_health_bar(fighter_1.health, 20, 20)
-        draw_health_bar(fighter_2.health, 580, 20)
-        draw_text(f"P1: {display_name_1} " + str(score[0]), score_font, RED, 20, 60)
-        draw_text(f"P2: {display_name_2} " + str(score[1]), score_font, RED, 580, 60)
-        draw_timer(timer, 460, 10)
+        draw_health_bar(game_surface, fighter_1.health, 20, 20)
+        draw_health_bar(game_surface, fighter_2.health, 580, 20)
+        draw_text(
+            game_surface,
+            f"P1: {display_name_1} " + str(score[0]),
+            score_font,
+            RED,
+            20,
+            60,
+        )
+        draw_text(
+            game_surface,
+            f"P2: {display_name_2} " + str(score[1]),
+            score_font,
+            RED,
+            580,
+            60,
+        )
+        draw_timer(game_surface, timer, 460, 10)
 
         # update countdown
         if intro_count <= 0:
             # move fighters
-            await fighter_1.move(SCREEN_WIDTH, SCREEN_HEIGHT, fighter_2, round_over)
-            await fighter_2.move(SCREEN_WIDTH, SCREEN_HEIGHT, fighter_1, round_over)
+            await fighter_1.move(GAME_WIDTH, GAME_HEIGHT, fighter_2, round_over)
+            await fighter_2.move(GAME_WIDTH, GAME_HEIGHT, fighter_1, round_over)
         else:
             # display count timer
             draw_text(
-                str(intro_count), count_font, RED, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3
+                game_surface,
+                str(intro_count),
+                count_font,
+                RED,
+                GAME_WIDTH / 2,
+                GAME_HEIGHT / 3,
             )
             # update count timer
             if (pygame.time.get_ticks() - last_count_update) >= 1000:
@@ -209,8 +251,8 @@ async def main():
         fighter_2.update()
 
         # draw fighters
-        fighter_1.draw(screen)
-        fighter_2.draw(screen)
+        fighter_1.draw(game_surface)
+        fighter_2.draw(game_surface)
 
         # check for player defeat
         if round_over == False:
@@ -236,7 +278,7 @@ async def main():
 
         else:
             # display victory image
-            screen.blit(victory_img, (360, 150))
+            game_surface.blit(victory_img, (360, 150))
             if pygame.time.get_ticks() - round_over_time > ROUND_OVER_COOLDOWN:
                 round_over = False
                 intro_count = 3
@@ -276,6 +318,12 @@ async def main():
         if (pygame.time.get_ticks() - last_count_update) >= 1000:
             timer -= 1
             last_count_update = pygame.time.get_ticks()
+
+        # draw game surface onto screen and add borders
+        screen.fill((0, 0, 0))
+        screen.blit(game_surface, (BORDER_LEFT, BORDER_TOP))
+        draw_actions(screen, fighter_1, 10)
+        draw_actions(screen, fighter_2, SCREEN_WIDTH - BORDER_RIGHT + 10)
 
         # update display
         pygame.display.update()
