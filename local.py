@@ -1,37 +1,9 @@
 import asyncio
-
-import boto3
 import pygame
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 # from fighter import Fighter
 from llm_fighter import LLMFighter
-
-
-def get_model_display_name(model_id):
-
-    model_ids = [
-        "anthropic.claude-3-sonnet-20240229-v1:0",
-        "anthropic.claude-3-haiku-20240307-v1:0",
-        "meta.llama3-8b-instruct-v1:0",
-        "meta.llama3-70b-instruct-v1:0",
-        "mistral.mistral-large-2402-v1:0",
-        "mistral.mixtral-8x7b-instruct-v0:1",
-    ]
-
-    if model_id == model_ids[0]:
-        return "Claude 3 Sonnet"
-    elif model_id == model_ids[1]:
-        return "Claude 3 Haiku"
-    elif model_id == model_ids[2]:
-        return "Llama 3 8B Instruct"
-    elif model_id == model_ids[3]:
-        return "Llama 3 70B Instruct"
-    elif model_id == model_ids[4]:
-        return "Mistral Large"
-    elif model_id == model_ids[5]:
-        return "Mixtral 8x7B"
-    else:
-        return "Unknown"
 
 
 async def main():
@@ -39,11 +11,18 @@ async def main():
     pygame.init()
 
     # create game window
-    SCREEN_WIDTH = 1000
-    SCREEN_HEIGHT = 600
+    GAME_WIDTH = 1000
+    GAME_HEIGHT = 600
+    BORDER_LEFT = 200
+    BORDER_RIGHT = 200
+    BORDER_TOP = 50
+    BORDER_BOTTOM = 150
+    SCREEN_WIDTH = GAME_WIDTH + BORDER_LEFT + BORDER_RIGHT
+    SCREEN_HEIGHT = GAME_HEIGHT + BORDER_TOP + BORDER_BOTTOM
 
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Model Brawl League")
+    game_surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
 
     # set framerate
     clock = pygame.time.Clock()
@@ -96,55 +75,59 @@ async def main():
     score_font = pygame.font.Font("assets/fonts/turok.ttf", 30)
 
     # function for drawing text
-    def draw_text(text, font, text_col, x, y):
+    def draw_text(surface, text, font, text_col, x, y):
         img = font.render(text, True, text_col)
-        screen.blit(img, (x, y))
+        surface.blit(img, (x, y))
 
     # function for drawing background
-    def draw_bg():
-        scaled_bg = pygame.transform.scale(bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
-        screen.blit(scaled_bg, (0, 0))
+    def draw_bg(surface):
+        scaled_bg = pygame.transform.scale(bg_image, (GAME_WIDTH, GAME_HEIGHT))
+        surface.blit(scaled_bg, (0, 0))
 
     # function for drawing fighter health bars
-    def draw_health_bar(health, x, y):
+    def draw_health_bar(surface, health, x, y):
         ratio = health / 100
-        pygame.draw.rect(screen, WHITE, (x - 2, y - 2, 404, 34))
-        pygame.draw.rect(screen, RED, (x, y, 400, 30))
-        pygame.draw.rect(screen, YELLOW, (x, y, 400 * ratio, 30))
+        pygame.draw.rect(surface, WHITE, (x - 2, y - 2, 404, 34))
+        pygame.draw.rect(surface, RED, (x, y, 400, 30))
+        pygame.draw.rect(surface, YELLOW, (x, y, 400 * ratio, 30))
 
-    def draw_timer(timer, x, y):
+    def draw_timer(surface, timer, x, y):
 
         if timer <= 0:
             timer = 0
 
-        draw_text(f"{timer}", count_font, RED, x, y)
+        draw_text(surface, f"{timer}", count_font, RED, x, y)
 
-    # Pick Models here
-    model_ids = [
-        "anthropic.claude-3-sonnet-20240229-v1:0",
-        "anthropic.claude-3-haiku-20240307-v1:0",
-        "meta.llama3-8b-instruct-v1:0",
-        "meta.llama3-70b-instruct-v1:0",
-        "mistral.mistral-large-2402-v1:0",
-        "mistral.mixtral-8x7b-instruct-v0:1",
-    ]
+    action_font = pygame.font.Font("assets/fonts/turok.ttf", 20)
 
-    model_1 = "anthropic.claude-3-sonnet-20240229-v1:0"
+    def draw_actions(surface, fighter, x):
+        draw_text(surface, "Moves:", action_font, WHITE, x, BORDER_TOP)
+        if fighter.action_queue:
+            for i, action in enumerate(fighter.action_queue[:5]):
+                draw_text(
+                    surface,
+                    f"- {action}",
+                    action_font,
+                    WHITE,
+                    x,
+                    BORDER_TOP + 25 + i * 20,
+                )
+        else:
+            draw_text(surface, "No actions", action_font, WHITE, x, BORDER_TOP + 25)
+
+    # Load Hugging Face model
+    MODEL_NAME = "bigscience/bloom-560m"
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    hf_model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+    llm = pipeline("text-generation", model=hf_model, tokenizer=tokenizer)
+
+    model_1 = MODEL_NAME
     system_prompt_1 = "You are a very defensive player"
-    bedrock_runtime_1 = boto3.client(
-        service_name="bedrock-runtime",
-        region_name="us-west-2",
-    )
+    display_name_1 = model_1
 
-    display_name_1 = get_model_display_name(model_1)
-
-    model_2 = "anthropic.claude-3-haiku-20240307-v1:0"
+    model_2 = MODEL_NAME
     system_prompt_2 = "You are a very aggressive player"
-    bedrock_runtime_2 = boto3.client(
-        service_name="bedrock-runtime",
-        region_name="us-east-1",
-    )
-    display_name_2 = get_model_display_name(model_2)
+    display_name_2 = model_2
 
     fighter_1 = LLMFighter(
         1,
@@ -156,7 +139,7 @@ async def main():
         WARRIOR_ANIMATION_STEPS,
         model_1,
         system_prompt_1,
-        bedrock_runtime_1,
+        llm,
     )
 
     fighter_2 = LLMFighter(
@@ -169,7 +152,7 @@ async def main():
         WIZARD_ANIMATION_STEPS,
         model_2,
         system_prompt_2,
-        bedrock_runtime_2,
+        llm,
     )
 
     # game loop
@@ -180,24 +163,43 @@ async def main():
         clock.tick(FPS)
 
         # draw background
-        draw_bg()
+        draw_bg(game_surface)
 
         # show player stats
-        draw_health_bar(fighter_1.health, 20, 20)
-        draw_health_bar(fighter_2.health, 580, 20)
-        draw_text(f"P1: {display_name_1} " + str(score[0]), score_font, RED, 20, 60)
-        draw_text(f"P2: {display_name_2} " + str(score[1]), score_font, RED, 580, 60)
-        draw_timer(timer, 460, 10)
+        draw_health_bar(game_surface, fighter_1.health, 20, 20)
+        draw_health_bar(game_surface, fighter_2.health, 580, 20)
+        draw_text(
+            game_surface,
+            f"P1: {display_name_1} " + str(score[0]),
+            score_font,
+            RED,
+            20,
+            60,
+        )
+        draw_text(
+            game_surface,
+            f"P2: {display_name_2} " + str(score[1]),
+            score_font,
+            RED,
+            580,
+            60,
+        )
+        draw_timer(game_surface, timer, 460, 10)
 
         # update countdown
         if intro_count <= 0:
             # move fighters
-            await fighter_1.move(SCREEN_WIDTH, SCREEN_HEIGHT, fighter_2, round_over)
-            await fighter_2.move(SCREEN_WIDTH, SCREEN_HEIGHT, fighter_1, round_over)
+            await fighter_1.move(GAME_WIDTH, GAME_HEIGHT, fighter_2, round_over)
+            await fighter_2.move(GAME_WIDTH, GAME_HEIGHT, fighter_1, round_over)
         else:
             # display count timer
             draw_text(
-                str(intro_count), count_font, RED, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3
+                game_surface,
+                str(intro_count),
+                count_font,
+                RED,
+                GAME_WIDTH / 2,
+                GAME_HEIGHT / 3,
             )
             # update count timer
             if (pygame.time.get_ticks() - last_count_update) >= 1000:
@@ -209,8 +211,8 @@ async def main():
         fighter_2.update()
 
         # draw fighters
-        fighter_1.draw(screen)
-        fighter_2.draw(screen)
+        fighter_1.draw(game_surface)
+        fighter_2.draw(game_surface)
 
         # check for player defeat
         if round_over == False:
@@ -236,7 +238,7 @@ async def main():
 
         else:
             # display victory image
-            screen.blit(victory_img, (360, 150))
+            game_surface.blit(victory_img, (360, 150))
             if pygame.time.get_ticks() - round_over_time > ROUND_OVER_COOLDOWN:
                 round_over = False
                 intro_count = 3
@@ -251,7 +253,7 @@ async def main():
                     WARRIOR_ANIMATION_STEPS,
                     model_1,
                     system_prompt_1,
-                    bedrock_runtime_1,
+                    llm,
                 )
 
                 fighter_2 = LLMFighter(
@@ -264,7 +266,7 @@ async def main():
                     WIZARD_ANIMATION_STEPS,
                     model_2,
                     system_prompt_2,
-                    bedrock_runtime_2,
+                    llm,
                 )
 
         # event handler
@@ -276,6 +278,12 @@ async def main():
         if (pygame.time.get_ticks() - last_count_update) >= 1000:
             timer -= 1
             last_count_update = pygame.time.get_ticks()
+
+        # draw game surface onto screen and add borders
+        screen.fill((0, 0, 0))
+        screen.blit(game_surface, (BORDER_LEFT, BORDER_TOP))
+        draw_actions(screen, fighter_1, 10)
+        draw_actions(screen, fighter_2, SCREEN_WIDTH - BORDER_RIGHT + 10)
 
         # update display
         pygame.display.update()
